@@ -1,15 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
+import { StyleSheet, Text, View, Image, Button, TouchableHighlight, TouchableOpacity, TouchableNativeFeedback, TouchableWithoutFeedback } from 'react-native';
 
 
 const makeBoard = (size, bombs) => {
 
   let board = [];
-  console.log('making board!');
 
   for (let i=0; i<size; i++) {
     let row = new Array(size).fill(0);
-    console.log('here is row', row);
     board.push(row); 
   }
 
@@ -41,7 +39,7 @@ const makeBoard = (size, bombs) => {
   //place bomb
   for (let i=0; i<bombs; i++) {
     let position = pickPosition();
-    while (board[position[0]][position[1]]) {
+    while (board[position[0]][position[1]] < 0) {
       position = pickPosition();
     }
     board[position[0]][position[1]] = -1;
@@ -49,8 +47,10 @@ const makeBoard = (size, bombs) => {
     addHints(position[0], position[1]);
   }
 
+  console.log('here is board', board);
   return board;
 }
+
 
 
 export default class App extends React.Component {
@@ -61,46 +61,109 @@ export default class App extends React.Component {
       board: [],
       currentBoard: []
     }
+    this.handlePress = this.handlePress.bind(this);
+    this.resetGame = this.resetGame.bind(this);
   }
 
   componentDidMount() {
     this.setState({
-      board: makeBoard(8, 5),
-      currentBoard: makeBoard(8)
+      board: makeBoard(8, 10),
+      currentBoard: makeBoard(8),
+      hasLost: false
     })
   }
 
-  styleCell () {
+  resetGame() {
+    this.setState({
+      board: makeBoard(8, 10),
+      currentBoard: makeBoard(8),
+      hasLost: false
+    })
+  }
+
+  handlePress (row, col) {
+
+    if (this.state.hasLost) {
+      return;
+    }
+
+    let board = this.state.currentBoard.slice(0);
+
+    if (this.state.board[row][col] > 0) {
+      //if number, just reveal number
+      board[row][col] = 1;
+    } else if (this.state.board[row][col] === -1) {
+      //reveal square
+      //you lose!
+      board[row][col] = 1;
+      this.setState({
+        hasLost: true
+      })
+    } else {
+
+      let context = this;
+      board[row][col] = 1;
+      function revealSquares (row, col) {
+
+        function toggleSquare (r, c) {
+          if (r >= 0 && r < 8 && c >= 0 && c < 8 && context.state.board[r][c] !== -1 && context.state.currentBoard[r][c] === 0 ) {
+            board[r][c] = 1;
+            if (context.state.board[r][c] === 0) {
+              revealSquares(r, c);
+            }
+          }
+        }
+
+        toggleSquare(row-1, col);
+        toggleSquare(row+1, col);
+        toggleSquare(row, col+1);
+        toggleSquare(row, col-1);
+        toggleSquare(row-1, col-1);
+        toggleSquare(row-1, col+1);
+        toggleSquare(row+1, col-1);
+        toggleSquare(row+1, col+1);
+      }
+      revealSquares(row, col);
+    }
+    //
+
+    this.setState({
+      currentBoard: board
+    })
+
+
 
   }
 
   render() {
-
-
-
     return (
 
       <View style={styles.container}>
         <Text style={styles.title}>Jenn's Minesweeper Game</Text>
+        <Text style={styles.title}>{this.state.hasLost ? 'You lost!' : '' }</Text>
         <View style={styles.board}>
-          {this.state.currentBoard.map((row) => {
+          {this.state.currentBoard.map((row, r) => {
             return (
-              <View>
-              <View style={styles.row} />
+              <View style={styles.row} >
+              <View />
               {
-                row.map((cell) => {
+                row.map((cell, c) => {
                   if (!cell) {
                     return (
-                      <View style={[styles.cell, styles.cellHidden]} >
-                        {/* <Text>{cell} </Text> */}
-                      </View>
+                      <TouchableHighlight onPress={() => this.handlePress(r,c)}>
+                        <View style={[styles.cell, styles.cellHidden]} >
+                        </View>
+                      </TouchableHighlight>
                     )
                   } else {
 
                     return (
-                      <View style={[styles.cell, styles.cellHidden]} >
-                          <Text>{cell}</Text>
-                      </View>
+                      // <TouchableHighlight onPress={() => this.handlePress(y,x)}>
+                        <View style={[styles.cell, styles.cellRevealed]} >
+                            <Text>{this.state.board[r][c]===-1 ? 'X' : this.state.board[r][c]}</Text>
+                        </View>
+                      // </TouchableHighlight>
+
                     )
                   }
                 })
@@ -110,19 +173,10 @@ export default class App extends React.Component {
           })}
         
         </View>
-        {/* <View style={{flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}}>
-          <View style={{flex: 2, backgroundColor: 'powderblue'}} />
-          <View style={{flex: 1, backgroundColor: 'steelblue'}} />
-          <View style={{flex: 1, backgroundColor: 'skyblue'}} /> */}
-        {/* </View> */}
-        {/* <View style={{width: 150, height: 150, backgroundColor: 'steelblue'}} />
-        <Text>Open up App.js to start working on your app!</Text>
-        <Text>Changes you make will automatically reload.</Text>
-        <Text>Shake your phone to open the developer menu.</Text>
-        <Image
-          style={{width: 50, height: 50}}
-          source={{uri: 'https://facebook.github.io/react-native/docs/assets/favicon.png'}}
-        />      */}
+        <Button
+            onPress={this.resetGame}
+            title="Reset Game"
+          />
       </View>
     );
   }
@@ -133,7 +187,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'white'
+    backgroundColor: 'white',
+    // flexDirection: 'row'
   },
   title: {
     fontFamily: 'Chalkduster',
@@ -144,23 +199,27 @@ const styles = StyleSheet.create({
     padding: 5,
     backgroundColor: '#47525d',
     borderRadius: 10,
-    flexDirection: 'row'
+    flexDirection: 'column'
   },
   row: {
     flexDirection: 'row',
   },
   cell: {
-    width: 50,
-    height: 50,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 4,
     borderWidth: 0.5,
     borderColor: '#000000',
+    // flexDirection: 'row'
   },
   cellHidden: {
     backgroundColor: '#D3D3D3',    
     // borderStyle: 'dotted'
+  },
+  cellRevealed: {
+    backgroundColor: '#939393',    
   }
   // cell: {
   //   // width: 5,
