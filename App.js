@@ -1,6 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, Button, TouchableHighlight, TouchableOpacity, TouchableNativeFeedback, TouchableWithoutFeedback } from 'react-native';
 
+isInsideBoard = (r, c, size) => {
+
+  return (r >=0 && r < size && c>=0 && c < size);
+}
+
 
 const makeBoard = (size, bombs) => {
 
@@ -21,7 +26,7 @@ const makeBoard = (size, bombs) => {
   let addHints = (row, col) => {
 
     function incrementCounter (r, c) {
-      if (r >=0 && r < size && c>=0 && c < size && board[r][c] >=0) {
+      if (isInsideBoard(r,c,size) && board[r][c] >=0) {
         board[r][c] += 1
       }
     }
@@ -69,7 +74,8 @@ export default class App extends React.Component {
     this.setState({
       board: makeBoard(8, 10),
       currentBoard: makeBoard(8),
-      hasLost: false
+      hasLost: false,
+      size: 8
     })
   }
 
@@ -81,6 +87,28 @@ export default class App extends React.Component {
     })
   }
 
+  revealSquares (board, row, col) {
+  
+    const toggleSquare = (r, c) => {
+      if (isInsideBoard(r,c,this.state.size) && this.state.board[r][c] !== -1 && this.state.currentBoard[r][c] === 0 ) {
+        board[r][c] = 1;
+        if (this.state.board[r][c] === 0) {
+          this.revealSquares(board, r, c);
+        }
+      }
+    }
+    
+    toggleSquare(row-1, col);
+    toggleSquare(row+1, col);
+    toggleSquare(row, col+1);
+    toggleSquare(row, col-1);
+    toggleSquare(row-1, col-1);
+    toggleSquare(row-1, col+1);
+    toggleSquare(row+1, col-1);
+    toggleSquare(row+1, col+1);
+  }
+  
+
   handlePress (row, col) {
 
     if (this.state.hasLost) {
@@ -88,54 +116,38 @@ export default class App extends React.Component {
     }
 
     let board = this.state.currentBoard.slice(0);
+    board[row][col] = 1;
 
-    if (this.state.board[row][col] > 0) {
-      //if number, just reveal number
-      board[row][col] = 1;
-    } else if (this.state.board[row][col] === -1) {
-      //reveal square
-      //you lose!
-      board[row][col] = 1;
+    if (this.state.board[row][col] === -1) {
       this.setState({
         hasLost: true
       })
-    } else {
-
-      let context = this;
-      board[row][col] = 1;
-      function revealSquares (row, col) {
-
-        function toggleSquare (r, c) {
-          if (r >= 0 && r < 8 && c >= 0 && c < 8 && context.state.board[r][c] !== -1 && context.state.currentBoard[r][c] === 0 ) {
-            board[r][c] = 1;
-            if (context.state.board[r][c] === 0) {
-              revealSquares(r, c);
-            }
-          }
-        }
-
-        toggleSquare(row-1, col);
-        toggleSquare(row+1, col);
-        toggleSquare(row, col+1);
-        toggleSquare(row, col-1);
-        toggleSquare(row-1, col-1);
-        toggleSquare(row-1, col+1);
-        toggleSquare(row+1, col-1);
-        toggleSquare(row+1, col+1);
-      }
-      revealSquares(row, col);
+    } else if (this.state.board[row][col] === 0) {
+      this.revealSquares(board, row, col);
     }
-    //
 
     this.setState({
       currentBoard: board
     })
 
-
-
   }
 
   render() {
+
+    const touchableView = (r, c) => (
+
+      <TouchableHighlight onPress={() => this.handlePress(r,c)}>
+                        <View style={[styles.cell, styles.cellHidden]} >
+                        </View>
+                      </TouchableHighlight>
+    )
+
+    const touchedView = (r, c) => (
+      <View style={[styles.cell, styles.cellRevealed]} >
+        <Text>{this.state.board[r][c]===-1 ? '💣' : this.state.board[r][c]}</Text>
+      </View>
+    )
+
     return (
 
       <View style={styles.container}>
@@ -147,26 +159,9 @@ export default class App extends React.Component {
               <View style={styles.row} >
               <View />
               {
-                row.map((cell, c) => {
-                  if (!cell) {
-                    return (
-                      <TouchableHighlight onPress={() => this.handlePress(r,c)}>
-                        <View style={[styles.cell, styles.cellHidden]} >
-                        </View>
-                      </TouchableHighlight>
-                    )
-                  } else {
-
-                    return (
-                      // <TouchableHighlight onPress={() => this.handlePress(y,x)}>
-                        <View style={[styles.cell, styles.cellRevealed]} >
-                            <Text>{this.state.board[r][c]===-1 ? 'X' : this.state.board[r][c]}</Text>
-                        </View>
-                      // </TouchableHighlight>
-
-                    )
-                  }
-                })
+                row.map((cell, c) => (
+                  cell ? touchedView(r,c) : touchableView(r, c) 
+                ))
               }
               </View>
             )
@@ -221,14 +216,4 @@ const styles = StyleSheet.create({
   cellRevealed: {
     backgroundColor: '#939393',    
   }
-  // cell: {
-  //   // width: 5,
-  //   // height: 5,
-  //   // borderRadius: 5,
-  //   backgroundColor: '#7b8994',
-  //   // margin: 5,
-  //   flex: 1,
-  //   justifyContent: 'center',
-  //   alignItems: 'center',
-  // }
 });
